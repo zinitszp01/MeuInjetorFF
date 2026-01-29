@@ -9,9 +9,11 @@ jobs:
         run: |
           export THEOS=~/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          curl -LO https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz
-          mkdir -p $THEOS/sdks
-          tar -xJ -C $THEOS/sdks -f iPhoneOS14.5.sdk.tar.xz
+          # Baixando um SDK mais estável e garantindo o download
+          curl -ksL https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o $THEOS/sdks/iPhoneOS14.5.sdk.tar.xz
+          cd $THEOS/sdks
+          tar -xf iPhoneOS14.5.sdk.tar.xz
+          rm iPhoneOS14.5.sdk.tar.xz
       - name: Build Dylib
         run: |
           export THEOS=~/theos
