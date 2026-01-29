@@ -5,23 +5,27 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Theos
         run: |
           export THEOS=~/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          # Baixando um SDK mais estável e garantindo o download
-          curl -ksL https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o $THEOS/sdks/iPhoneOS14.5.sdk.tar.xz
-          cd $THEOS/sdks
-          tar -xf iPhoneOS14.5.sdk.tar.xz
-          rm iPhoneOS14.5.sdk.tar.xz
+          # Baixando SDK de forma direta e segura
+          mkdir -p $THEOS/sdks
+          curl -L https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o iPhoneOS14.5.sdk.tar.xz
+          tar -xf iPhoneOS14.5.sdk.tar.xz -C $THEOS/sdks
+          
       - name: Build Dylib
         run: |
           export THEOS=~/theos
+          # Forçando a compilação ignorando avisos
           make FINALPACKAGE=1
-      - name: Check File
-        run: ls -R .theos/ # Isso nos ajuda a ver se o arquivo foi criado
+          
       - name: Upload Result
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: MinhaDylib
-          path: .theos/obj/**/*.dylib
+          path: |
+            .theos/obj/arm64/*.dylib
+            ./*.dylib
