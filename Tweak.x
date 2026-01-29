@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
-#import <substrate.h>
+// Se precisar de hooks de função manual:
+#include <substrate.h>
 
 // Importamos a função do arquivo externo de Bypass
 extern void ExecutarLimpezaBypass();
