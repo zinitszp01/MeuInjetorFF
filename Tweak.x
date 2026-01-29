@@ -106,14 +106,25 @@ UIButton *menuBtn;
 // --- LOOP DE CHEATS (PATCH CONTÍNUO) ---
 void cheat_loop() {
     while(true) {
+        // --- SEM RECUO (NO RECOIL) ---
         if (recoil_on) {
-            // SUBSTITUA PELOS SEUS OFFSETS DO FRIDA
-            patch_memory(get_real_offset(0x1A2B3C4), {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
+            uintptr_t recoilAddr = get_real_offset(0x19B3E4C); 
+            if (recoilAddr > 0x1000000) {
+                // Byte Patch: MOV X0, #0 ; RET
+                patch_memory(recoilAddr, {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
+            }
         }
+
+        // --- PRECISÃO (NO SPREAD) ---
         if (precision_on) {
-            patch_memory(get_real_offset(0x2B3C4D5), {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
+            uintptr_t precisionAddr = get_real_offset(0x19B42A8); 
+            if (precisionAddr > 0x1000000) {
+                // Byte Patch: MOV X0, #0 ; RET
+                patch_memory(precisionAddr, {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
+            }
         }
-        [NSThread sleepForTimeInterval:1.5];
+
+        [NSThread sleepForTimeInterval:2.0]; // Delay para poupar bateria
     }
 }
 
