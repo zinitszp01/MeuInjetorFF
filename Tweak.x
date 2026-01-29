@@ -1,123 +1,131 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 
-// --- FUNÇÃO DE LIMPEZA DE LOGS (ANTI-BAN) ---
-void limparLogsDoJogo() {
-    NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
+// --- VARIÁVEIS DE CONTROLE ---
+bool HS_Pescoco = false;
+bool ESP_Box = false;
+bool ESP_Line = false;
+
+// --- BYPASS: LIMPEZA DE LOGS ANTI-BAN ---
+void CleanAnticheatLogs() {
+    NSString *docPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray *blackList = @[@"Logs", @"GarenaSdk", @"Firebase", @"crash_log.txt", @"report_log.dat"];
     
-    // Lista de pastas que a Garena usa para salvar logs de detecção
-    NSArray *logsParaApagar = @[@"Logs", @"crash_log.txt", @"GarenaSdk", @"Firebase"];
-    
-    for (NSString *item in logsParaApagar) {
-        NSString *fullPath = [documentsPath stringByAppendingPathComponent:item];
-        if ([fileManager fileExistsAtPath:fullPath]) {
-            [fileManager removeItemAtPath:fullPath error:nil];
-        }
+    for (NSString *file in blackList) {
+        NSString *path = [docPath stringByAppendingPathComponent:file];
+        if ([fm fileExistsAtPath:path]) [fm removeItemAtPath:path error:nil];
     }
 }
 
-// --- INTERFACE DO PAINEL ---
-@interface SensiPanel : UIView
-@property (nonatomic, strong) UISlider *sensiSlider;
-@property (nonatomic, strong) UILabel *valueLabel;
+// --- INTERFACE DO PAINEL EXTERNO ---
+@interface VIPPanel : UIView
 @end
 
-@implementation SensiPanel
+@implementation VIPPanel
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
-        self.layer.cornerRadius = 15;
-        self.layer.borderWidth = 2;
+        self.layer.cornerRadius = 12;
+        self.layer.borderWidth = 1.5;
         self.layer.borderColor = [UIColor cyanColor].CGColor;
 
-        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, frame.size.width, 30)];
-        title.text = @"CAU VIP BYPASS";
-        title.textColor = [UIColor cyanColor];
-        title.font = [UIFont boldSystemFontOfSize:16];
-        title.textAlignment = NSTextAlignmentCenter;
-        [self addSubview:title];
+        UILabel *t = [[UILabel alloc] initWithFrame:CGRectMake(0, 5, frame.size.width, 25)];
+        t.text = @"CAU MODS VIP"; t.textColor = [UIColor cyanColor];
+        t.textAlignment = NSTextAlignmentCenter; t.font = [UIFont boldSystemFontOfSize:14];
+        [self addSubview:t];
 
-        self.sensiSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 60, frame.size.width - 40, 30)];
-        self.sensiSlider.minimumValue = 1.0;
-        self.sensiSlider.maximumValue = 10.0;
-        self.sensiSlider.tintColor = [UIColor cyanColor];
-        [self addSubview:self.sensiSlider];
-
-        self.valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 100, frame.size.width, 20)];
-        self.valueLabel.text = @"BYPASS: ATIVADO ✅";
-        self.valueLabel.textColor = [UIColor greenColor];
-        self.valueLabel.font = [UIFont systemFontOfSize:12];
-        self.valueLabel.textAlignment = NSTextAlignmentCenter;
-        [self addSubview:self.valueLabel];
+        [self addMenuSwitch:@"HS PESCOÇO" y:40 action:@selector(swHS:)];
+        [self addMenuSwitch:@"ESP BOX" y:80 action:@selector(swBox:)];
+        [self addMenuSwitch:@"ESP LINHA" y:120 action:@selector(swLine:)];
     }
     return self;
 }
-@end
 
-// --- GERENCIADOR DO MENU ---
-@interface MenuManager : NSObject
-+ (instancetype)shared;
-- (void)togglePanel;
-- (void)handlePan:(UIPanGestureRecognizer *)sender;
-@end
-
-UIWindow *externalWindow;
-UIButton *floatingButton;
-SensiPanel *panel;
-
-@implementation MenuManager
-+ (instancetype)shared {
-    static MenuManager *shared = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ shared = [MenuManager new]; });
-    return shared;
+- (void)addMenuSwitch:(NSString *)title y:(int)y action:(SEL)sel {
+    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(10, y, 100, 30)];
+    l.text = title; l.textColor = [UIColor whiteColor]; l.font = [UIFont systemFontOfSize:11];
+    [self addSubview:l];
+    UISwitch *s = [[UISwitch alloc] initWithFrame:CGRectMake(140, y, 0, 0)];
+    s.transform = CGAffineTransformMakeScale(0.75, 0.75);
+    [s addTarget:self action:sel forControlEvents:UIControlEventValueChanged];
+    [self addSubview:s];
 }
-- (void)togglePanel { panel.hidden = !panel.hidden; }
-- (void)handlePan:(UIPanGestureRecognizer *)sender {
-    CGPoint translation = [sender translationInView:externalWindow];
-    sender.view.center = CGPointMake(sender.view.center.x + translation.x, sender.view.center.y + translation.y);
-    [sender setTranslation:CGPointZero inView:externalWindow];
+
+- (void)swHS:(UISwitch *)s { HS_Pescoco = s.isOn; }
+- (void)swBox:(UISwitch *)s { ESP_Box = s.isOn; }
+- (void)swLine:(UISwitch *)s { ESP_Line = s.isOn; }
+@end
+
+// --- GERENCIADOR DE MOVIMENTO ---
+@interface MenuMgr : NSObject
++ (instancetype)s;
+- (void)pan:(UIPanGestureRecognizer *)g;
+- (void)tap;
+@end
+
+UIWindow *win;
+UIButton *btn;
+VIPPanel *pnl;
+
+@implementation MenuMgr
++ (instancetype)s { static MenuMgr *s; static dispatch_once_t t; dispatch_once(&t, ^{s=[MenuMgr new];}); return s; }
+- (void)tap { pnl.hidden = !pnl.hidden; }
+- (void)pan:(UIPanGestureRecognizer *)g {
+    CGPoint t = [g translationInView:win];
+    g.view.center = CGPointMake(g.view.center.x + t.x, g.view.center.y + t.y);
+    [g setTranslation:CGPointZero inView:win];
 }
 @end
 
-// --- BYPASS DE IDENTIFICAÇÃO ---
+// --- HOOKS DE BYPASS (ANTI-DETECÇÃO) ---
 %hook NSBundle
 - (NSString *)bundleIdentifier {
-    // Engana o jogo fingindo que ele ainda é o original da App Store
-    // se ele tentar checar se o ID do pacote mudou
+    // Retorna o ID original para o jogo não saber que é um IPA modificado
     return @"com.dts.freefiremax"; 
 }
 %end
 
-// --- INICIALIZAÇÃO ---
+// --- HOOKS DE FUNÇÃO (HS E ESP) ---
+// Aqui é onde os Offsets são aplicados
+%hook UnityPlayer // Exemplo de classe Unity
+- (void)Update {
+    %orig;
+    if (HS_Pescoco) {
+        // Exemplo de lógica: setAimBone(7); // 7 geralmente é pescoço
+    }
+}
+%end
+
+// --- CONSTRUTOR ---
 %ctor {
-    // 1. Limpa rastros de bans anteriores
-    limparLogsDoJogo();
+    CleanAnticheatLogs(); // Limpa rastros ao abrir
     
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        externalWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        externalWindow.windowLevel = UIWindowLevelStatusBar + 100.0;
-        externalWindow.backgroundColor = [UIColor clearColor];
-        [externalWindow makeKeyAndVisible];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        win.windowLevel = UIWindowLevelStatusBar + 100.0;
+        win.backgroundColor = [UIColor clearColor];
+        [win makeKeyAndVisible];
 
-        floatingButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        floatingButton.frame = CGRectMake(30, 200, 50, 50);
-        floatingButton.backgroundColor = [UIColor blackColor];
-        floatingButton.layer.cornerRadius = 25;
-        floatingButton.layer.borderColor = [UIColor cyanColor].CGColor;
-        floatingButton.layer.borderWidth = 1;
-        [floatingButton setTitle:@"VIP" forState:UIControlStateNormal];
+        btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        btn.frame = CGRectMake(20, 150, 45, 45);
+        btn.backgroundColor = [UIColor blackColor];
+        btn.layer.cornerRadius = 22.5;
+        btn.layer.borderColor = [UIColor cyanColor].CGColor;
+        btn.layer.borderWidth = 2;
+        [btn setTitle:@"CAU" forState:UIControlStateNormal];
+        [btn setTitleColor:[UIColor cyanColor] forState:UIControlStateNormal];
+        btn.titleLabel.font = [UIFont boldSystemFontOfSize:10];
         
-        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:[MenuManager shared] action:@selector(handlePan:)];
-        [floatingButton addGestureRecognizer:pan];
-        [floatingButton addTarget:[MenuManager shared] action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
+        [btn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:[MenuMgr s] action:@selector(pan:)]];
+        [btn addTarget:[MenuMgr s] action:@selector(tap) forControlEvents:UIControlEventTouchUpInside];
         
-        [externalWindow addSubview:floatingButton];
+        [win addSubview:btn];
 
-        panel = [[SensiPanel alloc] initWithFrame:CGRectMake(50, 260, 200, 150)];
-        panel.hidden = YES;
-        [externalWindow addSubview:panel];
+        pnl = [[VIPPanel alloc] initWithFrame:CGRectMake(0, 0, 200, 170)];
+        pnl.center = win.center;
+        pnl.hidden = YES;
+        [win addSubview:pnl];
     });
 }
