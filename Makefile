@@ -1,12 +1,11 @@
 ARCHS = arm64
-TARGET := iphone:clang:latest:14.0
+TARGET = iphone:clang:latest:14.0
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = SensiInjetor
-# O segredo está em compilar os dois arquivos juntos
 SensiInjetor_FILES = Tweak.xm Bypass/Anticheat.mm
-SensiInjetor_CFLAGS = -fobjc-arc -I./Bypass -w
-SensiInjetor_FRAMEWORKS = UIKit CoreGraphics QuartzCore
+SensiInjetor_FRAMEWORKS = UIKit QuartzCore CoreGraphics
+SensiInjetor_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
