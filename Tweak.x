@@ -1,15 +1,14 @@
 #import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
 
-// O %ctor inicia o código assim que o jogo abre
-%ctor {
-    // Espera 5 segundos para o jogo carregar a tela principal
+// Função para exibir o alerta ao abrir o jogo
+void mostrarAlerta() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        
         UIWindow *window = nil;
         
-        // Pega a janela ativa no iOS moderno (iOS 13 ou superior)
+        // Lógica compatível com iOS 13, 14, 15+ e versões antigas
         if (@available(iOS 13.0, *)) {
-            for (UIWindowScene* scene in [UIApplication sharedApplication].connectedScenes) {
+            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
                 if (scene.activationState == UISceneActivationStateForegroundActive) {
                     for (UIWindow *w in scene.windows) {
                         if (w.isKeyWindow) {
@@ -20,22 +19,26 @@
                 }
             }
         } else {
-            // Para versões mais antigas do iOS
             window = [UIApplication sharedApplication].keyWindow;
         }
 
-        // Se encontrar a janela, exibe o alerta de confirmação
         if (window) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"ZZMX SENSI" 
-                                        message:@"Injetor Ativado com Sucesso!\nSensibilidade FF MAX Ajustada." 
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"SensiInjetor" 
+                                        message:@"Sensibilidade Injetada com Sucesso!\nCriado por Cau" 
                                         preferredStyle:UIAlertControllerStyleAlert];
-                                        
-            UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" 
-                                       style:UIAlertActionStyleDefault 
-                                       handler:nil];
-                                       
-            [alert addAction:okAction];
+            
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
             [window.rootViewController presentViewController:alert animated:YES completion:nil];
         }
     });
 }
+
+// Hook que detecta quando o jogo inicia
+%hook UnityAppController
+
+- (void)applicationDidBecomeActive:(id)application {
+    %orig;
+    mostrarAlerta();
+}
+
+%end
