@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-// --- Interface do Painel ---
+// --- Interface do Painel VIP ---
 @interface SensiPanel : UIView
 @property (nonatomic, strong) UISlider *sensiSlider;
 @property (nonatomic, strong) UILabel *valueLabel;
@@ -10,89 +10,120 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
-        self.layer.cornerRadius = 15;
-        self.layer.borderWidth = 2;
-        self.layer.borderColor = [UIColor redColor].CGColor;
+        // Estética do Painel
+        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+        self.layer.cornerRadius = 20;
+        self.layer.borderWidth = 1.5;
+        self.layer.borderColor = [UIColor cyanColor].CGColor; // Cor da borda
+        self.clipsToBounds = YES;
 
+        // Título do Painel
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, frame.size.width, 30)];
-        title.text = @"SENSI EXTERNA";
-        title.textColor = [UIColor whiteColor];
-        title.font = [UIFont boldSystemFontOfSize:18];
+        title.text = @"SENSI INJETOR VIP";
+        title.textColor = [UIColor cyanColor];
+        title.font = [UIFont boldSystemFontOfSize:16];
         title.textAlignment = NSTextAlignmentCenter;
         [self addSubview:title];
 
         // Slider de Sensibilidade
-        self.sensiSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 60, frame.size.width - 40, 20)];
+        self.sensiSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 60, frame.size.width - 40, 30)];
         self.sensiSlider.minimumValue = 1.0;
-        self.sensiSlider.maximumValue = 5.0;
-        self.sensiSlider.tintColor = [UIColor redColor];
+        self.sensiSlider.maximumValue = 10.0;
+        self.sensiSlider.tintColor = [UIColor cyanColor];
         [self.sensiSlider addTarget:self action:@selector(sliderChanged:) forControlEvents:UIControlEventValueChanged];
         [self addSubview:self.sensiSlider];
 
-        self.valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 90, frame.size.width, 20)];
-        self.valueLabel.text = @"Valor: 1.0";
-        self.valueLabel.textColor = [UIColor yellowColor];
+        // Label de Valor
+        self.valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 95, frame.size.width, 20)];
+        self.valueLabel.text = @"SENSI: 1.0x";
+        self.valueLabel.textColor = [UIColor whiteColor];
+        self.valueLabel.font = [UIFont systemFontOfSize:14];
         self.valueLabel.textAlignment = NSTextAlignmentCenter;
         [self addSubview:self.valueLabel];
+        
+        // Rodapé
+        UILabel *footer = [[UILabel alloc] initWithFrame:CGRectMake(0, 130, frame.size.width, 15)];
+        footer.text = @"Criado por Cau";
+        footer.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.5];
+        footer.font = [UIFont systemFontOfSize:10];
+        footer.textAlignment = NSTextAlignmentCenter;
+        [self addSubview:footer];
     }
     return self;
 }
 
 - (void)sliderChanged:(UISlider *)sender {
-    self.valueLabel.text = [NSString stringWithFormat:@"Valor: %.1f", sender.value];
-    // Aqui você enviará o valor para a memória do jogo futuramente
+    self.valueLabel.text = [NSString stringWithFormat:@"SENSI: %.1fx", sender.value];
+    // O valor 'sender.value' é o que você usará nos offsets futuramente
 }
 @end
 
-// --- Lógica de Arrastar e Janela ---
+// --- Gerenciador de Movimento e Janela ---
+@interface MenuManager : NSObject
++ (instancetype)shared;
+- (void)togglePanel;
+- (void)handlePan:(UIPanGestureRecognizer *)sender;
+@end
+
 UIWindow *externalWindow;
 UIButton *floatingButton;
 SensiPanel *panel;
 
+@implementation MenuManager
++ (instancetype)shared {
+    static MenuManager *shared = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ shared = [MenuManager new]; });
+    return shared;
+}
+
+- (void)togglePanel {
+    [UIView animateWithDuration:0.3 animations:^{
+        panel.hidden = !panel.hidden;
+        panel.alpha = panel.hidden ? 0 : 1;
+    }];
+}
+
+- (void)handlePan:(UIPanGestureRecognizer *)sender {
+    CGPoint translation = [sender translationInView:externalWindow];
+    sender.view.center = CGPointMake(sender.view.center.x + translation.x, sender.view.center.y + translation.y);
+    [sender setTranslation:CGPointZero inView:externalWindow];
+}
+@end
+
 %ctor {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         
-        // Criando a Janela Invisível que cobre a tela
+        // Janela Superior (Acima de tudo)
         externalWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
         externalWindow.windowLevel = UIWindowLevelStatusBar + 100.0;
         externalWindow.backgroundColor = [UIColor clearColor];
         [externalWindow makeKeyAndVisible];
         externalWindow.userInteractionEnabled = YES;
 
-        // Botão Flutuante Arrastável
+        // Ícone Flutuante (Logo do Injetor)
         floatingButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        floatingButton.frame = CGRectMake(50, 150, 60, 60);
-        floatingButton.backgroundColor = [UIColor redColor];
-        floatingButton.layer.cornerRadius = 30;
-        [floatingButton setTitle:@"MENU" forState:UIControlStateNormal];
+        floatingButton.frame = CGRectMake(50, 150, 55, 55);
+        floatingButton.backgroundColor = [UIColor blackColor];
+        floatingButton.layer.cornerRadius = 27.5;
+        floatingButton.layer.borderWidth = 2;
+        floatingButton.layer.borderColor = [UIColor cyanColor].CGColor;
+        [floatingButton setTitle:@"CAU" forState:UIControlStateNormal];
+        floatingButton.titleLabel.font = [UIFont boldSystemFontOfSize:12];
+        [floatingButton setTitleColor:[UIColor cyanColor] forState:UIControlStateNormal];
         
-        // Adicionando gesto para arrastar
-        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+        // Gestos
+        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:[MenuManager shared] action:@selector(handlePan:)];
         [floatingButton addGestureRecognizer:pan];
-        [floatingButton addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
+        [floatingButton addTarget:[MenuManager shared] action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
         
         [externalWindow addSubview:floatingButton];
 
-        // Inicializando o Painel
-        panel = [[SensiPanel alloc] initWithFrame:CGRectMake(50, 220, 220, 140)];
+        // Criar o Painel Principal
+        panel = [[SensiPanel alloc] initWithFrame:CGRectMake(0, 0, 220, 160)];
+        panel.center = externalWindow.center;
         panel.hidden = YES;
+        panel.alpha = 0;
         [externalWindow addSubview:panel];
     });
 }
-
-// Função para abrir/fechar
-%hook UIViewController
-%new
-- (void)togglePanel {
-    panel.hidden = !panel.hidden;
-}
-
-// Função para arrastar o botão
-%new
-- (void)handlePan:(UIPanGestureRecognizer *)sender {
-    CGPoint translation = [sender translationInView:externalWindow];
-    sender.view.center = CGPointMake(sender.view.center.x + translation.x, sender.view.center.y + translation.y);
-    [sender setTranslation:CGPointZero inView:externalWindow];
-}
-%end
