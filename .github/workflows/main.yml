@@ -8,24 +8,21 @@ jobs:
 
       - name: Setup Theos
         run: |
-          export THEOS=~/theos
+          export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          # Baixando SDK de forma direta e segura
           mkdir -p $THEOS/sdks
-          curl -L https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o iPhoneOS14.5.sdk.tar.xz
-          tar -xf iPhoneOS14.5.sdk.tar.xz -C $THEOS/sdks
+          curl -L https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o $THEOS/sdks/sdk.tar.xz
+          tar -xf $THEOS/sdks/sdk.tar.xz -C $THEOS/sdks
           
       - name: Build Dylib
         run: |
-          export THEOS=~/theos
-          # Forçando a compilação ignorando avisos
+          export THEOS=$HOME/theos
+          make clean
           make FINALPACKAGE=1
           
       - name: Upload Result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MinhaDylib
-          path: |
-            .theos/obj/arm64/*.dylib
-            ./*.dylib
+          name: SensiInjetor-Dylib
+          path: .theos/obj/arm64/*.dylib
