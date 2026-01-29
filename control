@@ -3,7 +3,7 @@ Name: SensiInjetor
 Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Injetor de Sensibilidade para FF MAX
+Description: Injetor de Sensibilidade
 Maintainer: Cau
 Author: Cau
 Section: Tweaks
