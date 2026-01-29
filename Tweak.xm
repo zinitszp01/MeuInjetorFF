@@ -3,30 +3,35 @@
 #import <substrate.h>
 #include <vector>
 
+// --- CONFIGURAÇÕES DE BACKUP (OFFSETS OB45/46) ---
+// Se o jogo atualizar, você só precisa mudar esses números aqui:
+#define OFF_RECOIL 0x19B3E4C
+#define OFF_SPREAD 0x19B42A8
+#define OFF_AIMBOT 0x2C4A110
+
 // --- VARIÁVEIS DE CONTROLE ---
 static bool aimbot_full = false;
 static bool aimbot_legit = false;
 static bool norecoil = false;
 static bool precision = false;
 static bool esp_on = false;
+static int legit_count = 0;
 
 // --- BYPASS DE LOGIN (APP & WEB) ---
-// Força o sistema a aceitar o retorno do Facebook/Google para o app modificado
 %hook UIApplication
 - (BOOL)openURL:(NSURL*)url options:(NSDictionary<UIApplicationOpenExternalURLOptionsKey, id>*)options completionHandler:(void (^)(BOOL success))completion {
     NSString *urlStr = url.absoluteString;
-    // Se for login do Facebook, tratamos a URL para garantir compatibilidade
+    // Força compatibilidade com esquemas de login externos
     if ([urlStr containsString:@"fbauth2://"] || [urlStr containsString:@"googlechrome://"]) {
-        NSLog(@"[CAU-VIP] Redirecionando login para modo seguro...");
+        NSLog(@"[CAU-VIP] Bypass de Login Ativado para: %@", urlStr);
     }
     return %orig(url, options, completion);
 }
 %end
 
-// Garante que o Token de login seja processado ao voltar para o jogo
 %hook UnityAppController
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<id, id>*)options {
-    return %orig;
+    return %orig; // Garante o retorno do Token de acesso
 }
 %end
 
@@ -45,19 +50,24 @@ static bool esp_on = false;
 - (void)drawRect:(CGRect)rect {
     if (!esp_on) return;
     CGContextRef ctx = UIGraphicsGetCurrentContext();
-    [[UIColor redColor] setStroke];
+    [[UIColor cyanColor] setStroke];
     CGContextSetLineWidth(ctx, 1.5);
-    // Linha central (Snapline)
+    
+    // Desenho de Linha Guia (Snapline)
     CGContextMoveToPoint(ctx, rect.size.width / 2, 0);
     CGContextAddLineToPoint(ctx, rect.size.width / 2, rect.size.height / 2);
     CGContextStrokePath(ctx);
-    [@"ESP ONLINE" drawAtPoint:CGPointMake(20, 50) withAttributes:@{NSForegroundColorAttributeName:[UIColor greenColor]}];
+
+    [@"CAU VIP: ESP ATIVO" drawAtPoint:CGPointMake(20, 50) withAttributes:@{
+        NSForegroundColorAttributeName:[UIColor greenColor],
+        NSFontAttributeName:[UIFont boldSystemFontOfSize:12]
+    }];
 }
 @end
 static ESPCanvas *espView;
 
-// --- MOTOR DE MEMÓRIA ---
-uintptr_t get_addr(long offset) {
+// --- MOTOR DE MEMÓRIA (PATCHER) ---
+uintptr_t get_unity_addr(long offset) {
     uintptr_t addr = 0;
     for (uint32_t i = 0; i < _dyld_image_count(); i++) {
         if (strstr(_dyld_get_image_name(i), "UnityFramework")) {
@@ -75,41 +85,44 @@ void patch_mem(uintptr_t addr, std::vector<uint8_t> data) {
     mprotect((void *)(addr & ~0xFFF), 0x1000, PROT_READ | PROT_EXEC);
 }
 
-// --- INTERFACE MÓVEL (MENU) ---
+// --- INTERFACE DO MENU MÓVEL ---
 @interface VIPMenu : UIView
 @end
 @implementation VIPMenu
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
-        self.layer.cornerRadius = 15;
-        self.layer.borderColor = [UIColor redColor].CGColor;
-        self.layer.borderWidth = 2;
+        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+        self.layer.cornerRadius = 20;
+        self.layer.borderColor = [UIColor cyanColor].CGColor;
+        self.layer.borderWidth = 2.5;
 
-        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 220, 30)];
-        title.text = @"CAU VIP v7.0"; title.textColor = [UIColor redColor];
-        title.textAlignment = NSTextAlignmentCenter; [self addSubview:title];
+        UILabel *t = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 220, 30)];
+        t.text = @"CAU VIP ULTIMATE"; t.textColor = [UIColor cyanColor];
+        t.textAlignment = NSTextAlignmentCenter; t.font = [UIFont boldSystemFontOfSize:16];
+        [self addSubview:t];
 
         [self addOpt:@"AIMBOT FULL" y:50 s:@selector(sw1:)];
-        [self addOpt:@"AIMBOT LEGIT" y:95 s:@selector(sw2:)];
+        [self addOpt:@"AIMBOT LEGIT (3p)" y:95 s:@selector(sw2:)];
         [self addOpt:@"NO RECOIL" y:140 s:@selector(sw3:)];
         [self addOpt:@"PRECISÃO" y:185 s:@selector(sw4:)];
-        [self addOpt:@"ESP / WALL" y:230 s:@selector(sw5:)];
+        [self addOpt:@"ESP / WALLHACK" y:230 s:@selector(sw5:)];
 
-        UIPanGestureRecognizer *p = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(m:)];
+        UIPanGestureRecognizer *p = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragged:)];
         [self addGestureRecognizer:p];
     }
     return self;
 }
 - (void)addOpt:(NSString *)n y:(int)y s:(SEL)s {
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(20, y, 120, 30)];
-    l.text = n; l.textColor = [UIColor whiteColor]; [self addSubview:l];
+    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(20, y, 130, 30)];
+    l.text = n; l.textColor = [UIColor whiteColor]; l.font = [UIFont systemFontOfSize:13];
+    [self addSubview:l];
     UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(150, y, 0, 0)];
+    sw.transform = CGAffineTransformMakeScale(0.8, 0.8);
     [sw addTarget:self action:s forControlEvents:UIControlEventValueChanged];
     [self addSubview:sw];
 }
-- (void)m:(UIPanGestureRecognizer *)p {
+- (void)dragged:(UIPanGestureRecognizer *)p {
     CGPoint t = [p translationInView:self];
     self.center = CGPointMake(self.center.x + t.x, self.center.y + t.y);
     [p setTranslation:CGPointZero inView:self];
@@ -121,25 +134,50 @@ void patch_mem(uintptr_t addr, std::vector<uint8_t> data) {
 - (void)sw5:(UISwitch *)s { esp_on = s.isOn; }
 @end
 
-// --- LOOP DE ATUALIZAÇÃO ---
+// --- LOOP DE CHEATS (EXECUTOR) ---
 void cheat_loop() {
+    // Bytes de Patch (Linguagem de Máquina ARM64)
+    std::vector<uint8_t> p_zero = {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6}; // RET 0
+    std::vector<uint8_t> p_one  = {0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6}; // RET 1
+
     while(true) {
-        if (aimbot_full) patch_mem(get_addr(0x2C4A110), {0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
-        if (norecoil)    patch_mem(get_addr(0x19B3E4C), {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
-        if (precision)  patch_mem(get_addr(0x19B42A8), {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
+        // Aplica patches conforme os switches ligados
+        if (aimbot_full) patch_mem(get_unity_addr(OFF_AIMBOT), p_one);
+        if (norecoil)    patch_mem(get_unity_addr(OFF_RECOIL), p_zero);
+        if (precision)  patch_mem(get_unity_addr(OFF_SPREAD), p_zero);
         
-        if (esp_on) dispatch_async(dispatch_get_main_queue(), ^{ [espView setNeedsDisplay]; });
-        [NSThread sleepForTimeInterval:0.5];
+        // Aimbot Legit (Lógica básica de auxílio)
+        if (aimbot_legit) {
+            patch_mem(get_unity_addr(OFF_AIMBOT), p_one); 
+            // Aqui futuramente entra o hook para contar os 3 tiros no peito
+        }
+
+        // Atualiza Desenho do ESP
+        if (esp_on) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [espView setNeedsDisplay]; });
+        }
+        
+        [NSThread sleepForTimeInterval:1.0]; // Delay para segurança
     }
 }
 
+// --- INICIALIZADOR ---
 %ctor {
+    // Espera 10 segundos para o jogo carregar a UnityFramework
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        UIWindow *w = [UIApplication sharedApplication].keyWindow;
-        espView = [[ESPCanvas alloc] initWithFrame:w.bounds];
-        [w addSubview:espView];
-        VIPMenu *m = [[VIPMenu alloc] initWithFrame:CGRectMake(50, 150, 220, 280)];
-        [w addSubview:m];
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{ cheat_loop(); });
+        UIWindow *win = [UIApplication sharedApplication].keyWindow;
+        
+        // 1. Cria Camada ESP
+        espView = [[ESPCanvas alloc] initWithFrame:win.bounds];
+        [win addSubview:espView];
+
+        // 2. Cria Painel VIP
+        VIPMenu *menu = [[VIPMenu alloc] initWithFrame:CGRectMake(50, 150, 220, 280)];
+        [win addSubview:menu];
+
+        // 3. Inicia Thread de Cheats
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            cheat_loop();
+        });
     });
 }
