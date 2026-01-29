@@ -10,11 +10,7 @@ jobs:
         run: |
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          mkdir -p $THEOS/sdks
-          # Usando um link direto do repositório de SDks estáveis
-          # Verifica se o arquivo é realmente um dado compactado antes de extrair
-          file sdk.tar.xz
-          rm sdk.tar.xz
+          # Não vamos mais baixar o SDK manualmente, vamos usar o do sistema
           
       - name: Build Dylib
         run: |
