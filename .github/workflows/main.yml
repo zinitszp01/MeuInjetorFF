@@ -11,9 +11,12 @@ jobs:
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
           mkdir -p $THEOS/sdks
-          # Usando um link que força o download do arquivo real
-          curl -L "https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz" -o $THEOS/sdks/sdk.tar.xz
-          tar -xf $THEOS/sdks/sdk.tar.xz -C $THEOS/sdks
+          # Usando um link direto do repositório de SDks estáveis
+          curl -L "https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz" -o sdk.tar.xz
+          # Verifica se o arquivo é realmente um dado compactado antes de extrair
+          file sdk.tar.xz
+          tar -xf sdk.tar.xz -C $THEOS/sdks
+          rm sdk.tar.xz
           
       - name: Build Dylib
         run: |
