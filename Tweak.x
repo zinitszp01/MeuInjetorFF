@@ -1,16 +1,14 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
-// Se precisar de hooks de função manual:
-#include <substrate.h>
+#import <substrate.h>
 
-// Importamos a função do arquivo externo de Bypass
-extern void ExecutarLimpezaBypass();
+// Importante: extern "C" evita o erro de linkagem que deu no log
+extern "C" void ExecutarLimpezaBypass();
 
-// Variáveis de ativação
-static bool recoil_on = false;
 static bool hs_on = false;
+static bool recoil_on = false;
 
-// Função corrigida para calcular endereços de memória (Offsets)
+// Função para calcular Offsets
 uintptr_t get_real_offset(long offset) {
     return (uintptr_t)_dyld_get_image_header(0) + offset;
 }
@@ -32,8 +30,8 @@ uintptr_t get_real_offset(long offset) {
         t.text = @"CAU VIP v3.0"; t.textColor = [UIColor cyanColor];
         t.textAlignment = NSTextAlignmentCenter; [self addSubview:t];
 
-        [self addSw:@"SEM RECUO" y:60 act:@selector(swR:)];
-        [self addSw:@"HS PESCOÇO" y:110 act:@selector(swH:)];
+        [self addSw:@"HS PESCOÇO" y:60 act:@selector(swH:)];
+        [self addSw:@"SEM RECUO" y:110 act:@selector(swR:)];
     }
     return self;
 }
@@ -44,11 +42,11 @@ uintptr_t get_real_offset(long offset) {
     [s addTarget:self action:act forControlEvents:UIControlEventValueChanged];
     [self addSubview:s];
 }
-- (void)swR:(UISwitch *)s { recoil_on = s.isOn; }
 - (void)swH:(UISwitch *)s { hs_on = s.isOn; }
+- (void)swR:(UISwitch *)s { recoil_on = s.isOn; }
 @end
 
-// --- GERENCIADOR DO MENU ---
+// --- GERENCIADOR ---
 UIWindow *mainWin;
 VIPPanel *menuPnl;
 UIButton *menuBtn;
@@ -64,8 +62,10 @@ UIButton *menuBtn;
 
     menuBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     menuBtn.frame = CGRectMake(40, 140, 50, 50);
-    menuBtn.backgroundColor = [UIColor cyanColor];
+    menuBtn.backgroundColor = [UIColor blackColor];
     menuBtn.layer.cornerRadius = 25;
+    menuBtn.layer.borderColor = [UIColor cyanColor].CGColor;
+    menuBtn.layer.borderWidth = 2;
     [menuBtn setTitle:@"VIP" forState:UIControlStateNormal];
     [menuBtn addTarget:self action:@selector(toggle) forControlEvents:UIControlEventTouchUpInside];
     [mainWin addSubview:menuBtn];
@@ -78,17 +78,13 @@ UIButton *menuBtn;
 + (void)toggle { menuPnl.hidden = !menuPnl.hidden; }
 @end
 
-// --- BYPASS DE IDENTIDADE ---
 %hook NSBundle
-- (NSString *)bundleIdentifier {
-    return @"com.dts.freefiremax";
-}
+- (NSString *)bundleIdentifier { return @"com.dts.freefiremax"; }
 %end
 
-// --- CONSTRUTOR ---
 %ctor {
     %init;
-    // Executa a limpeza da pasta Bypass
+    // Chama o Bypass Externo
     ExecutarLimpezaBypass();
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
