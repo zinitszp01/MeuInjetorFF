@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 #import <substrate.h>
-#import <vector>
+#include <vector> // Agora o compilador vai aceitar!
 
 // Declaração do Bypass Externo
 #ifdef __cplusplus
@@ -16,23 +16,22 @@ extern "C" {
 static bool recoil_on = false;
 static bool precision_on = false;
 
-// BUSCA DE ENDEREÇO ESTILO FRIDA
+// BUSCA DE ENDEREÇO DINÂMICA
 uintptr_t get_real_offset(long offset) {
     uintptr_t addr = 0;
     uint32_t count = _dyld_image_count();
     for (uint32_t i = 0; i < count; i++) {
         const char *name = _dyld_get_image_name(i);
-        if (strstr(name, "UnityFramework")) {
-            addr = _dyld_get_image_header(i);
+        if (name && strstr(name, "UnityFramework")) {
+            addr = (uintptr_t)_dyld_get_image_header(i);
             break;
         }
     }
-    // Se não achar a UnityFramework, tenta a base principal (fallback)
     if (addr == 0) addr = (uintptr_t)_dyld_get_image_header(0);
     return addr + offset;
 }
 
-// Função para aplicar Patch de Memória
+// Função de Patch (Objective-C++)
 void patch_memory(uintptr_t address, std::vector<uint8_t> data) {
     if (address < 0x1000000) return; 
     mprotect((void *)(address & ~0xFFF), 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC);
@@ -40,7 +39,7 @@ void patch_memory(uintptr_t address, std::vector<uint8_t> data) {
     mprotect((void *)(address & ~0xFFF), 0x1000, PROT_READ | PROT_EXEC);
 }
 
-// --- INTERFACE DO PAINEL ---
+// --- INTERFACE ---
 @interface VIPPanel : UIView
 @end
 @implementation VIPPanel
@@ -53,7 +52,7 @@ void patch_memory(uintptr_t address, std::vector<uint8_t> data) {
         self.layer.borderWidth = 2.0;
 
         UILabel *t = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 200, 30)];
-        t.text = @"CAU VIP v5.0"; t.textColor = [UIColor cyanColor];
+        t.text = @"CAU VIP v6.0"; t.textColor = [UIColor cyanColor];
         t.textAlignment = NSTextAlignmentCenter; [self addSubview:t];
 
         [self addSw:@"SEM RECUO" y:60 act:@selector(swR:)];
@@ -103,28 +102,17 @@ UIButton *menuBtn;
 + (void)toggle { menuPnl.hidden = !menuPnl.hidden; }
 @end
 
-// --- LOOP DE CHEATS (PATCH CONTÍNUO) ---
+// --- LOOP ATUALIZADO ---
 void cheat_loop() {
+    std::vector<uint8_t> patchBytes = {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6};
     while(true) {
-        // --- SEM RECUO (NO RECOIL) ---
         if (recoil_on) {
-            uintptr_t recoilAddr = get_real_offset(0x19B3E4C); 
-            if (recoilAddr > 0x1000000) {
-                // Byte Patch: MOV X0, #0 ; RET
-                patch_memory(recoilAddr, {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
-            }
+            patch_memory(get_real_offset(0x19B3E4C), patchBytes);
         }
-
-        // --- PRECISÃO (NO SPREAD) ---
         if (precision_on) {
-            uintptr_t precisionAddr = get_real_offset(0x19B42A8); 
-            if (precisionAddr > 0x1000000) {
-                // Byte Patch: MOV X0, #0 ; RET
-                patch_memory(precisionAddr, {0x00, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6});
-            }
+            patch_memory(get_real_offset(0x19B42A8), patchBytes);
         }
-
-        [NSThread sleepForTimeInterval:2.0]; // Delay para poupar bateria
+        [NSThread sleepForTimeInterval:2.0];
     }
 }
 
