@@ -17,41 +17,29 @@ void LimparRastros() {
         NSString *path = [docPath stringByAppendingPathComponent:file];
         if ([fm fileExistsAtPath:path]) {
             [fm removeItemAtPath:path error:nil];
-            // Cria um arquivo dummy para impedir a recriação da pasta de log
+            // Bloqueia a recriação criando um arquivo vazio no lugar
             [@"" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
         }
     }
 }
 
 // --- ANTI-KICK & ANTI-BLACKLIST (HOOKS DE SISTEMA) ---
-// Essas funções tentam enganar o jogo quando ele pede informações do aparelho
-
-// 1. Hook para ocultar arquivos de Jailbreak (Evita detecção de ambiente)
-BOOL (*old_fileExistsAtPath)(id self, SEL _cmd, NSString *path);
-BOOL new_fileExistsAtPath(id self, SEL _cmd, NSString *path) {
-    if ([path containsString:@"bin/bash"] || [path containsString:@"Cydia"] || [path containsString:@"libsubstitute"]) {
-        return NO; // Diz ao jogo que esses arquivos não existem
+// Hook para esconder arquivos que o anti-cheat usa para marcar o aparelho
+static BOOL (*old_fileExistsAtPath)(id self, SEL _cmd, NSString *path);
+static BOOL new_fileExistsAtPath(id self, SEL _cmd, NSString *path) {
+    if ([path containsString:@"Cydia"] || [path containsString:@"Sileo"] || [path containsString:@"libsubstitute"]) {
+        return NO;
     }
     return old_fileExistsAtPath(self, _cmd, path);
 }
 
-// 2. Hook para bloquear envio de Reports (Anti-Ban/Anti-Blacklist)
-// Bloqueia a URL de reporte da Garena no nível de sistema
-void (*old_dataWithContentsOfURL)(id self, SEL _cmd, NSURL *url);
-void new_dataWithContentsOfURL(id self, SEL _cmd, NSURL *url) {
-    if ([url.absoluteString containsString:@"report"] || [url.absoluteString containsString:@"log-upload"]) {
-        return; // Bloqueia o upload do log de denúncia
-    }
-    old_dataWithContentsOfURL(self, _cmd, url);
-}
-
-// --- FUNÇÃO PRINCIPAL CHAMADA PELO TWEAK ---
+// --- FUNÇÃO PRINCIPAL CHAMADA PELO TWEAK.X ---
 void ExecutarLimpezaBypass() {
-    // Limpa logs imediatamente
+    // 1. Executa a limpeza de logs imediatamente
     LimparRastros();
     
-    // Inicia hooks de proteção de sistema
+    // 2. Aplica os Hooks de proteção (Anti-Blacklist)
     MSHookMessageEx([NSFileManager class], @selector(fileExistsAtPath:), (IMP)new_fileExistsAtPath, (IMP *)&old_fileExistsAtPath);
     
-    NSLog(@"[CAU BYPASS] Anti-Blacklist e Clean Logs Ativados!");
+    NSLog(@"[CAU-BYPASS] Sistema de Proteção Ativado com Sucesso!");
 }
