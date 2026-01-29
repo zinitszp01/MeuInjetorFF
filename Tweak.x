@@ -1,24 +1,41 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
+#import <substrate.h> // Necessário para MSHookFunction
 
-// --- VARIÁVEIS DE CONTROLE ---
-bool HS_Pescoco = false;
-bool ESP_Box = false;
-bool ESP_Line = false;
+// --- VARIÁVEIS DE ESTADO ---
+bool feature_NoRecoil = false;
+bool feature_HS = false;
+bool feature_Antiban = false;
 
-// --- BYPASS: LIMPEZA DE LOGS ANTI-BAN ---
-void CleanAnticheatLogs() {
-    NSString *docPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSArray *blackList = @[@"Logs", @"GarenaSdk", @"Firebase", @"crash_log.txt", @"report_log.dat"];
-    
-    for (NSString *file in blackList) {
-        NSString *path = [docPath stringByAppendingPathComponent:file];
-        if ([fm fileExistsAtPath:path]) [fm removeItemAtPath:path error:nil];
-    }
+// --- FUNÇÃO PARA OBTER O ENDEREÇO REAL NA MEMÓRIA ---
+// O binário do iOS usa ASLR (endereçamento aleatório), por isso somamos o Offset ao endereço base.
+uintptr_t get_real_offset(long offset) {
+    return _dyld_get_image_header(0) + offset;
 }
 
-// --- INTERFACE DO PAINEL EXTERNO ---
+// --- HOOKS DE MEMÓRIA (PATCHES) ---
+
+// 1. SEM RECUO (No Recoil)
+// Procurar no dump: WeaponMoveControl$$GetRecoilValue ou similar
+void (*old_Recoil)(void* instance);
+float get_recoil_hook(void* instance) {
+    if (feature_NoRecoil) {
+        return 0.0f; // Retorna zero recuo
+    }
+    return 1.0f; // Valor padrão (precisa ajustar conforme o jogo)
+}
+
+// 2. AIMBOT / HS (Forçar Cabeça/Pescoço)
+// Procurar no dump: Player$$GetBonePosition ou AimAssist$$GetTarget
+void* (*old_GetTarget)(void* instance);
+void* get_target_hook(void* instance) {
+    if (feature_HS) {
+        // Lógica para forçar o alvo no bone ID 7 (Pescoço)
+    }
+    return old_GetTarget(instance);
+}
+
+// --- INTERFACE DO PAINEL ---
 @interface VIPPanel : UIView
 @end
 
@@ -27,105 +44,80 @@ void CleanAnticheatLogs() {
     self = [super initWithFrame:frame];
     if (self) {
         self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
-        self.layer.cornerRadius = 12;
-        self.layer.borderWidth = 1.5;
+        self.layer.cornerRadius = 15;
         self.layer.borderColor = [UIColor cyanColor].CGColor;
+        self.layer.borderWidth = 1.5;
 
-        UILabel *t = [[UILabel alloc] initWithFrame:CGRectMake(0, 5, frame.size.width, 25)];
-        t.text = @"CAU MODS VIP"; t.textColor = [UIColor cyanColor];
-        t.textAlignment = NSTextAlignmentCenter; t.font = [UIFont boldSystemFontOfSize:14];
-        [self addSubview:t];
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, frame.size.width, 20)];
+        title.text = @"CAU INJETOR v2.0";
+        title.textColor = [UIColor cyanColor];
+        title.textAlignment = NSTextAlignmentCenter;
+        [self addSubview:title];
 
-        [self addMenuSwitch:@"HS PESCOÇO" y:40 action:@selector(swHS:)];
-        [self addMenuSwitch:@"ESP BOX" y:80 action:@selector(swBox:)];
-        [self addMenuSwitch:@"ESP LINHA" y:120 action:@selector(swLine:)];
+        [self addToggle:@"SEM RECUO" y:50 action:@selector(swRecoil:)];
+        [self addToggle:@"HS PESCOÇO" y:90 action:@selector(swHS:)];
+        [self addToggle:@"ULTRA BYPASS" y:130 action:@selector(swBypass:)];
     }
     return self;
 }
 
-- (void)addMenuSwitch:(NSString *)title y:(int)y action:(SEL)sel {
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(10, y, 100, 30)];
-    l.text = title; l.textColor = [UIColor whiteColor]; l.font = [UIFont systemFontOfSize:11];
+- (void)addToggle:(NSString *)name y:(int)y action:(SEL)sel {
+    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(15, y, 100, 30)];
+    l.text = name; l.textColor = [UIColor whiteColor]; l.font = [UIFont systemFontOfSize:12];
     [self addSubview:l];
-    UISwitch *s = [[UISwitch alloc] initWithFrame:CGRectMake(140, y, 0, 0)];
-    s.transform = CGAffineTransformMakeScale(0.75, 0.75);
+    UISwitch *s = [[UISwitch alloc] initWithFrame:CGRectMake(130, y, 0, 0)];
     [s addTarget:self action:sel forControlEvents:UIControlEventValueChanged];
     [self addSubview:s];
 }
 
-- (void)swHS:(UISwitch *)s { HS_Pescoco = s.isOn; }
-- (void)swBox:(UISwitch *)s { ESP_Box = s.isOn; }
-- (void)swLine:(UISwitch *)s { ESP_Line = s.isOn; }
+- (void)swRecoil:(UISwitch *)s { feature_NoRecoil = s.isOn; }
+- (void)swHS:(UISwitch *)s { feature_HS = s.isOn; }
+- (void)swBypass:(UISwitch *)s { feature_Antiban = s.isOn; }
 @end
 
-// --- GERENCIADOR DE MOVIMENTO ---
-@interface MenuMgr : NSObject
-+ (instancetype)s;
-- (void)pan:(UIPanGestureRecognizer *)g;
-- (void)tap;
-@end
-
+// --- GERENCIADOR DO MENU ---
 UIWindow *win;
 UIButton *btn;
 VIPPanel *pnl;
 
-@implementation MenuMgr
-+ (instancetype)s { static MenuMgr *s; static dispatch_once_t t; dispatch_once(&t, ^{s=[MenuMgr new];}); return s; }
-- (void)tap { pnl.hidden = !pnl.hidden; }
-- (void)pan:(UIPanGestureRecognizer *)g {
-    CGPoint t = [g translationInView:win];
-    g.view.center = CGPointMake(g.view.center.x + t.x, g.view.center.y + t.y);
-    [g setTranslation:CGPointZero inView:win];
-}
+@interface MenuMgr : NSObject
 @end
-
-// --- HOOKS DE BYPASS (ANTI-DETECÇÃO) ---
-%hook NSBundle
-- (NSString *)bundleIdentifier {
-    // Retorna o ID original para o jogo não saber que é um IPA modificado
-    return @"com.dts.freefiremax"; 
-}
-%end
-
-// --- HOOKS DE FUNÇÃO (HS E ESP) ---
-// Aqui é onde os Offsets são aplicados
-%hook UnityPlayer // Exemplo de classe Unity
-- (void)Update {
-    %orig;
-    if (HS_Pescoco) {
-        // Exemplo de lógica: setAimBone(7); // 7 geralmente é pescoço
-    }
-}
-%end
-
-// --- CONSTRUTOR ---
-%ctor {
-    CleanAnticheatLogs(); // Limpa rastros ao abrir
-    
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+@implementation MenuMgr
++ (void)load {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        win.windowLevel = UIWindowLevelStatusBar + 100.0;
+        win.windowLevel = UIWindowLevelStatusBar + 100;
         win.backgroundColor = [UIColor clearColor];
         [win makeKeyAndVisible];
 
         btn = [UIButton buttonWithType:UIButtonTypeCustom];
-        btn.frame = CGRectMake(20, 150, 45, 45);
-        btn.backgroundColor = [UIColor blackColor];
-        btn.layer.cornerRadius = 22.5;
-        btn.layer.borderColor = [UIColor cyanColor].CGColor;
-        btn.layer.borderWidth = 2;
-        [btn setTitle:@"CAU" forState:UIControlStateNormal];
-        [btn setTitleColor:[UIColor cyanColor] forState:UIControlStateNormal];
-        btn.titleLabel.font = [UIFont boldSystemFontOfSize:10];
-        
-        [btn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:[MenuMgr s] action:@selector(pan:)]];
-        [btn addTarget:[MenuMgr s] action:@selector(tap) forControlEvents:UIControlEventTouchUpInside];
-        
+        btn.frame = CGRectMake(50, 150, 50, 50);
+        btn.backgroundColor = [UIColor cyanColor];
+        btn.layer.cornerRadius = 25;
+        [btn setTitle:@"MENU" forState:UIControlStateNormal];
+        [btn addTarget:self action:@selector(toggle) forControlEvents:UIControlEventTouchUpInside];
         [win addSubview:btn];
 
-        pnl = [[VIPPanel alloc] initWithFrame:CGRectMake(0, 0, 200, 170)];
+        pnl = [[VIPPanel alloc] initWithFrame:CGRectMake(0, 0, 200, 180)];
         pnl.center = win.center;
         pnl.hidden = YES;
         [win addSubview:pnl];
     });
 }
++ (void)toggle { pnl.hidden = !pnl.hidden; }
+@end
+
+// --- INICIALIZAÇÃO DOS HOOKS ---
+%ctor {
+    // AQUI VOCÊ COLA OS OFFSETS QUE ACHAR NO DUMP
+    // MSHookFunction((void*)get_real_offset(0x1234567), (void*)get_recoil_hook, (void**)&old_Recoil);
+    
+    // Bypass de Identidade (Simples)
+    %init(_ungrouped);
+}
+
+%hook NSBundle
+- (NSString *)bundleIdentifier {
+    return @"com.dts.freefiremax";
+}
+%end
