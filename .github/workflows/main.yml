@@ -10,7 +10,8 @@ jobs:
         run: |
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          # Não vamos mais baixar o SDK manualmente, vamos usar o do sistema
+          # Instala a ferramenta de assinatura que está faltando
+          brew install ldid
           
       - name: Build Dylib
         run: |
