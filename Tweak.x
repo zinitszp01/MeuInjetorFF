@@ -2,8 +2,14 @@
 #import <mach-o/dyld.h>
 #import <substrate.h>
 
-// Importante: extern "C" evita o erro de linkagem que deu no log
-extern "C" void ExecutarLimpezaBypass();
+// DECLARAÇÃO COMPATÍVEL COM C++ E OBJC
+#ifdef __cplusplus
+extern "C" {
+#endif
+    void ExecutarLimpezaBypass();
+#ifdef __cplusplus
+}
+#endif
 
 static bool hs_on = false;
 static bool recoil_on = false;
@@ -84,7 +90,7 @@ UIButton *menuBtn;
 
 %ctor {
     %init;
-    // Chama o Bypass Externo
+    // Chama o Bypass Externo de forma segura
     ExecutarLimpezaBypass();
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
