@@ -5,7 +5,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = SensiInjetor
 # O segredo está em compilar os dois arquivos juntos
-SensiInjetor_FILES = Tweak.x Bypass/Anticheat.mm
+SensiInjetor_FILES = Tweak.xm Bypass/Anticheat.mm
 SensiInjetor_CFLAGS = -fobjc-arc -I./Bypass -w
 SensiInjetor_FRAMEWORKS = UIKit CoreGraphics QuartzCore
 
