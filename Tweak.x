@@ -1,18 +1,23 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
-#import <substrate.h>
 
-// --- SISTEMA DE BYPASS (CAMUFLAGEM) ---
-void apply_stealth_bypass() {
-    // 1. Hook para enganar a checagem de arquivos modificados
-    // Isso tenta impedir que o jogo perceba que o IPA foi alterado
-    MSHookFunction((void *)NSClassFromString(@"NSBundle"), @selector(bundleIdentifier), NULL, NULL);
+// --- FUNÇÃO DE LIMPEZA DE LOGS (ANTI-BAN) ---
+void limparLogsDoJogo() {
+    NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
     
-    // 2. Bloqueio de detecção de Jailbreak (Caso o usuário use)
-    // Muitos anti-cheats banem se detectarem caminhos de sistema abertos
+    // Lista de pastas que a Garena usa para salvar logs de detecção
+    NSArray *logsParaApagar = @[@"Logs", @"crash_log.txt", @"GarenaSdk", @"Firebase"];
+    
+    for (NSString *item in logsParaApagar) {
+        NSString *fullPath = [documentsPath stringByAppendingPathComponent:item];
+        if ([fileManager fileExistsAtPath:fullPath]) {
+            [fileManager removeItemAtPath:fullPath error:nil];
+        }
+    }
 }
 
-// --- INTERFACE DO PAINEL VIP ---
+// --- INTERFACE DO PAINEL ---
 @interface SensiPanel : UIView
 @property (nonatomic, strong) UISlider *sensiSlider;
 @property (nonatomic, strong) UILabel *valueLabel;
@@ -26,7 +31,6 @@ void apply_stealth_bypass() {
         self.layer.cornerRadius = 15;
         self.layer.borderWidth = 2;
         self.layer.borderColor = [UIColor cyanColor].CGColor;
-        self.clipsToBounds = YES;
 
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, frame.size.width, 30)];
         title.text = @"CAU VIP BYPASS";
@@ -39,22 +43,16 @@ void apply_stealth_bypass() {
         self.sensiSlider.minimumValue = 1.0;
         self.sensiSlider.maximumValue = 10.0;
         self.sensiSlider.tintColor = [UIColor cyanColor];
-        [self.sensiSlider addTarget:self action:@selector(sliderChanged:) forControlEvents:UIControlEventValueChanged];
         [self addSubview:self.sensiSlider];
 
         self.valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 100, frame.size.width, 20)];
-        self.valueLabel.text = @"STATUS: BYPASS ATIVO";
+        self.valueLabel.text = @"BYPASS: ATIVADO ✅";
         self.valueLabel.textColor = [UIColor greenColor];
         self.valueLabel.font = [UIFont systemFontOfSize:12];
         self.valueLabel.textAlignment = NSTextAlignmentCenter;
         [self addSubview:self.valueLabel];
     }
     return self;
-}
-
-- (void)sliderChanged:(UISlider *)sender {
-    // Aqui no futuro aplicaremos os Offsets reais
-    self.valueLabel.text = [NSString stringWithFormat:@"SENSI: %.1fx", sender.value];
 }
 @end
 
@@ -76,9 +74,7 @@ SensiPanel *panel;
     dispatch_once(&onceToken, ^{ shared = [MenuManager new]; });
     return shared;
 }
-- (void)togglePanel {
-    panel.hidden = !panel.hidden;
-}
+- (void)togglePanel { panel.hidden = !panel.hidden; }
 - (void)handlePan:(UIPanGestureRecognizer *)sender {
     CGPoint translation = [sender translationInView:externalWindow];
     sender.view.center = CGPointMake(sender.view.center.x + translation.x, sender.view.center.y + translation.y);
@@ -86,10 +82,19 @@ SensiPanel *panel;
 }
 @end
 
-// --- INICIALIZAÇÃO SEGURA ---
+// --- BYPASS DE IDENTIFICAÇÃO ---
+%hook NSBundle
+- (NSString *)bundleIdentifier {
+    // Engana o jogo fingindo que ele ainda é o original da App Store
+    // se ele tentar checar se o ID do pacote mudou
+    return @"com.dts.freefiremax"; 
+}
+%end
+
+// --- INICIALIZAÇÃO ---
 %ctor {
-    // Inicia o Bypass antes do jogo carregar completamente
-    apply_stealth_bypass();
+    // 1. Limpa rastros de bans anteriores
+    limparLogsDoJogo();
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         externalWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
