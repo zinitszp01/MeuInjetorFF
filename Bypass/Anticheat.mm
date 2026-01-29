@@ -2,7 +2,7 @@
 #import <substrate.h>
 #import <mach-o/dyld.h>
 
-// Hooks para Anti-Blacklist
+// Proteção para ocultar o ambiente do jogo
 static BOOL (*old_fileExistsAtPath)(id self, SEL _cmd, NSString *path);
 BOOL new_fileExistsAtPath(id self, SEL _cmd, NSString *path) {
     if ([path containsString:@"Cydia"] || [path containsString:@"Sileo"] || [path containsString:@"libsubstitute"]) {
@@ -11,17 +11,13 @@ BOOL new_fileExistsAtPath(id self, SEL _cmd, NSString *path) {
     return old_fileExistsAtPath(self, _cmd, path);
 }
 
-// O extern "C" precisa estar fora e envolvendo a função
 extern "C" {
     void ExecutarLimpezaBypass() {
-        // 1. LIMPEZA DE LOGS (ANTI-BAN)
+        // 1. LIMPEZA DE LOGS ANTI-BAN
         NSString *docPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
         NSFileManager *fm = [NSFileManager defaultManager];
         
-        NSArray *blacklistFiles = @[
-            @"Logs", @"GarenaSdk", @"Firebase", @"crash_log.txt", 
-            @"client_report_log", @"Pandora", @"il2cpp", @"backtrace"
-        ];
+        NSArray *blacklistFiles = @[@"Logs", @"GarenaSdk", @"Firebase", @"Pandora", @"client_report_log"];
         
         for (NSString *file in blacklistFiles) {
             NSString *path = [docPath stringByAppendingPathComponent:file];
@@ -31,9 +27,9 @@ extern "C" {
             }
         }
 
-        // 2. APLICAÇÃO DE HOOKS (ANTI-BLACKLIST / ANTI-KICK)
+        // 2. ANTI-BLACKLIST HOOK
         MSHookMessageEx([NSFileManager class], @selector(fileExistsAtPath:), (IMP)new_fileExistsAtPath, (IMP *)&old_fileExistsAtPath);
         
-        NSLog(@"[CAU-BYPASS] Proteção Completa Ativada!");
+        NSLog(@"[CAU-BYPASS] Proteção Ativada Estilo Frida!");
     }
 }
