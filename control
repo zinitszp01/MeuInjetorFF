@@ -1,0 +1,9 @@
+Package: com.cau.sensiinjetor
+Name: SensiInjetor
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Injetor de Sensibilidade para FF MAX
+Maintainer: Cau
+Author: Cau
+Section: Tweaks
